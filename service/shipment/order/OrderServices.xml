@@ -1,0 +1,68 @@
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <service verb="create" noun="Order">
+        <in-parameters>
+            <parameter name="order_number" required="true"/>
+            <parameter name="source_system_id"/>
+            <parameter name="origin_address" type="Map">
+                <parameter name="name"/>
+                <parameter name="company"/>
+                <parameter name="street1"/>
+                <parameter name="city"/>
+                <parameter name="state"/>
+                <parameter name="zip"/>
+                <parameter name="phone_number"/>
+            </parameter>
+            <parameter name="destination_address" type="Map">
+                <parameter name="name"/>
+                <parameter name="company"/>
+                <parameter name="street1"/>
+                <parameter name="city"/>
+                <parameter name="state"/>
+                <parameter name="zip"/>
+                <parameter name="phone_number"/>
+            </parameter>
+            <parameter name="order_line_items" type="List">
+                <parameter name="orderMap" type="Map">
+                    <parameter name="source_system_id"/>
+                    <parameter name="name"/>
+                    <parameter name="sku"/>
+                    <parameter name="quantity"/>
+                    <parameter name="value"/>
+                    <parameter name="length"/>
+                    <parameter name="width"/>
+                    <parameter name="height"/>
+                    <parameter name="weight"/>
+                    <parameter name="item_type"/>
+                </parameter>
+            </parameter>
+            <parameter name="requested_shipping_details"/>
+            <parameter name="requested_rate_id"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="requestMap"/>
+        </out-parameters>
+        <actions>
+            <log message="===================order_line_items:${order_line_items}========="/>
+            <set field="requestMap" from="[order_number:order_number,source_system_id:source_system_id,
+                                           origin_address:origin_address,destination_address:destination_address,
+                                            order_line_items:order_line_items,requested_shipping_details:requested_shipping_details,
+                                            requested_rate_id:requested_rate_id]"/>
+            <log message="===============================requestMap:${requestMap}===================================="/>
+            <script>
+                    <![CDATA[ org.moqui.util.RestClient restClient = ec.service.rest().method(org.moqui.util.RestClient.POST)
+                    .addHeader("Content-Type", "application/json").jsonObject(requestMap)
+            restClient.uri().protocol("https").host("sandbox.shiphawk.com").port(443).path("/api/v4/orders?api_key=03341427e3d29f6cb89c04749136a811").build()
+            org.moqui.util.RestClient.RestResponse restResponse = restClient.call()
+            if (restResponse.statusCode < 200 || restResponse.statusCode >= 300)
+            {
+                String errMsg = restResponse.text()
+                ec.logger.error("error response (${restResponse.statusCode}): ${errMsg}")
+                ec.message.addMessage("API error")
+                ec.message.addMessage(errMsg)
+                return
+            }
+            responseMap = restResponse.jsonObject() ]]>
+          </script>
+        </actions>
+    </service>
+</services>
