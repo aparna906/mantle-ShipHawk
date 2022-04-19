@@ -2,7 +2,7 @@
           name="shipment" displayName="order REST API" version="2.0.0">
     <resource name="order" require-authentication="anonymous-all">
         <method type="post">
-            <service name="shipment.order.OrderServices.create#Order"/>
+            <service name="shipment.order.OrderServices.find#Order"/>
         </method>
     </resource>
 </resource>
