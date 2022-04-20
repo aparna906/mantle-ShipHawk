@@ -4,71 +4,34 @@
         <in-parameters>
             <parameter name="statusId"/>
         </in-parameters>
-
         <out-parameters>
             <parameter name="responseMap"/>
         </out-parameters>
         <actions>
-            <set field="source_system_id" value="SH123"/>
-
-            <entity-find entity-name="mantle.order.OrderHeaderAndPart" list="orderHeaderAndPartsList">
-                <econdition field-name="statusId" value="OrderApproved"/>
-            </entity-find>
-            <iterate list="orderHeaderAndPartsList" entry="orderHeaderAndPart">
-                <set field="order_number" from="orderHeaderAndPart.orderId"/>
-
-                <log message="===============order_number:${orderHeaderAndPart.orderId}============="/>
-
-
-                <!--         origin_address-->
-                <entity-find entity-name="mantle.order.OrderPart" list="part">
-                    <econdition field-name="statusId"/>
-                </entity-find>
-
-                <entity-find entity-name="mantle.facility.Facility" list="facility">
-                    <econdition field-name="facilityId" from="orderHeaderAndPart.facilityId"/>
-                </entity-find>
-                <log message="===============facilityId:${facility}============="/>
-
-
-                <entity-find entity-name="mantle.facility.FacilityContactMech" list="conList">
-                    <econdition field-name="facilityId" from="facility.facilityId"/>
-                    <select-field field-name="contactMechId"/>
-                </entity-find>
-
-                <log message="===============contactList:${conList.contactMechId}============="/>
-
-                <entity-find entity-name="mantle.facility.FacilityContactMechPostalAddress" list="addList">
-                    <econdition field-name="contactMechId" from="conList.contactMechId"/>
-                    <select-field field-name="toName"/>
-                    <select-field field-name="address1"/>
-                    <select-field field-name="city"/>
-                    <select-field field-name="stateProvinceGeoId"/>
-                    <select-field field-name="postalCode"/>
-                    <select-field field-name="infoString"/>
-                </entity-find>
-                <log message="===============address:${addList}============="/>
-
-                <iterate list="addList" entry="address">
-                    <log message="=======address====${address}======"/>
-                    <set field="origin_address" from="[name:address.toName,street1:address.address1,city:address.city,
-                                  state:address.stateProvinceGeoId,zip:address.postalCode,email:address.infoString]"/>
+            <service-call name="co.hotwax.oms.OrderServices.find#Orders" in-map="[statusId:statusId]" out-map="orderOut"/>
+            <log message="====orderOut===${orderOut}===="/>
+            <iterate list="orderOut.orders" entry="order">
+                <log message="====order====${order}===="/>
+                <set field="order_number" from="order.orderId"/>
+                <log message="===============order_number:${order_number}============="/>
+          <!-- Origin Address-->
+                <service-call name="co.hotwax.oms.FacilityServices.find#Facilities" out-map="facilityOut"/>
+                <log message="==========facility:${facilityOut}================"/>
+                <iterate list="facilityOut.facilities" entry="facility">
+                  <set field="origin_address" from="[name:facility.locationName,street1:facility.stateProvinceGeoId,
+                                                     city:facility.city,zip:facility.postalCode]"/>
+                  <log message="===============origin_address:${origin_address}============="/>
                 </iterate>
-
-                <log message="===========origin_address:${origin_address}"/>
-
                 <set field="requestMap" from="[order_number:order_number,origin_address:origin_address]"/>
                 <log message="==============requestMap======${requestMap}========"/>
-            </iterate>
-            <script>
+                <script>
                 <![CDATA[
                 org.moqui.util.RestClient
                 restClient = ec.service.rest().method(org.moqui.util.RestClient.POST)
-                .addHeader("Content-Type", "application/json").jsonObject(requestMap)
+                        .addHeader("Content-Type", "application/json").jsonObject(requestMap)
                 restClient.uri().protocol("https").host("sandbox.shiphawk.com")
-
-//                TO DO Remove the hardcoded api key as it is not recommended to store any credentials in the public repo
-                .port(443).path("/api/v4/orders?api_key=03341427e3d29f6cb89c04749136a811").build()
+// TO DO Remove the hardcoded api key as it is not recommended to store any credentials in the public repo
+                port(443).path("/api/v4/orders?api_key=03341427e3d29f6cb89c04749136a811").build()
                 org.moqui.util.RestClient.RestResponse restResponse = restClient.call()
                 if (restResponse.statusCode < 200 || restResponse.statusCode >= 300) {
                     String errMsg = restResponse.text()
@@ -77,12 +40,16 @@
                     ec.message.addMessage(errMsg)
                     return
                 }
-                responseMap = restResponse.jsonObject()]]>
+                responseMap = restResponse.jsonObject()
                 println(responseMap);
+                ]]>
             </script>
+            </iterate>
         </actions>
     </service>
 </services>
+
+
 
 
 
