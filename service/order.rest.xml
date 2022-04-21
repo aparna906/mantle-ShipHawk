@@ -1,0 +1,8 @@
+<resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/rest-api-2.1.xsd"
+          name="shipment" displayName="order REST API" version="2.0.0">
+    <resource name="order" require-authentication="anonymous-all">
+        <method type="post">
+            <service name="shipment.order.OrderServices.find#Order"/>
+        </method>
+    </resource>
+</resource>
