@@ -1,6 +1,6 @@
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
-    <service verb="find" noun="Order">
+    xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <service verb="find" noun="Orders">
         <in-parameters>
             <parameter name="statusId"/>
         </in-parameters>
@@ -8,48 +8,73 @@
             <parameter name="responseMap"/>
         </out-parameters>
         <actions>
-            <service-call name="co.hotwax.oms.OrderServices.find#Orders" in-map="[statusId:statusId]" out-map="orderOut"/>
-            <log message="====orderOut===${orderOut}===="/>
-            <iterate list="orderOut.orders" entry="order">
-                <log message="====order====${order}===="/>
+                <service-call name="co.hotwax.oms.OrderServices.find#Orders" in-map="[statusId:statusId]" out-map="orderOut"/>
+                <iterate list="orderOut.orders" entry="order">
                 <set field="order_number" from="order.orderId"/>
                 <log message="===============order_number:${order_number}============="/>
-          <!-- Origin Address-->
-                <service-call name="co.hotwax.oms.FacilityServices.find#Facilities" out-map="facilityOut"/>
-                <log message="==========facility:${facilityOut}================"/>
-                <iterate list="facilityOut.facilities" entry="facility">
-                  <set field="origin_address" from="[name:facility.locationName,street1:facility.stateProvinceGeoId,
-                                                     city:facility.city,zip:facility.postalCode]"/>
-                  <log message="===============origin_address:${origin_address}============="/>
+
+            <!-- Destination Address-->
+                <set field="order_parts" from="[]"/>
+                <iterate list="order.order_parts" entry="partsMap">
+                <set field="order_parts" from="partsMap"/>
                 </iterate>
-                <set field="requestMap" from="[order_number:order_number,origin_address:origin_address]"/>
+                <log message="===============parts:${order_parts}============="/>
+                 <set field="source_system_id" value="SH123"/>
+                <set field="destination_address" from="[name:order_parts.shipping_details.address.toName,
+                            street1:order_parts.shipping_details.address.stateProvinceGeoId,city:order_parts.shipping_details.address.city,
+                            zip:order_parts.shipping_details.address.postalCode,phone_number:order_parts.shipping_details.phone.contactNumber]"/>
+                <log message="==============destination_address:${destination_address}========"/>
+
+                <!--Order line Item-->
+                <set field="item_details" from="[]"/>
+                <set field="order_line_items" from="[]"/>
+                <iterate list="order.order_parts.item_details" entry="lineItemsMap">
+                <set field="item_details" from="lineItemsMap"/>
+                </iterate>
+                <log message="=========item_details:${item_details}=========="/>
+                <iterate list="item_details" entry="itemsMap">
+                <set field="order_line_items" from="order_line_items+[name:itemsMap.product_name,sku:itemsMap.sku,quantity:itemsMap.quantity,
+                            value:itemsMap.unitAmount]"/>
+                </iterate>
+                <log message="==============order_line_item:${order_line_items}========"/>
+
+                <!--Origin Address-->
+                <service-call name="co.hotwax.oms.FacilityServices.find#Facilities" out-map="facilityOut"/>
+                <iterate list="facilityOut.facilities" entry="facilityMap">
+                <set field="origin_address" from="[name:facilityMap.locationName,street1:facilityMap.stateProvinceGeoId,city:facilityMap.city,
+                            zip:facilityMap.postalCode]"/>
+                <log message="===============origin_address:${origin_address}============="/>
+                </iterate>
+                <set field="total_price" from="order.grandTotal"/>
+                <set field="shipping_price" from="partsMap.shippingCost"/>
+                <set field="requestMap" from="[order_number:order_number,source_system_id:source_system_id,origin_address:origin_address,
+                            destination_address:destination_address,order_line_items:order_line_items,total_price:total_price,
+                            shipping_price:shipping_price,tax_price:tax_price]"/>
                 <log message="==============requestMap======${requestMap}========"/>
-                <script>
+            <script>
                 <![CDATA[
-                org.moqui.util.RestClient
-                restClient = ec.service.rest().method(org.moqui.util.RestClient.POST)
+                        org.moqui.util.RestClient
+                        restClient = ec.service.rest().method(org.moqui.util.RestClient.POST)
                         .addHeader("Content-Type", "application/json").jsonObject(requestMap)
-                restClient.uri().protocol("https").host("sandbox.shiphawk.com")
-// TO DO Remove the hardcoded api key as it is not recommended to store any credentials in the public repo
-                port(443).path("/api/v4/orders?api_key=03341427e3d29f6cb89c04749136a811").build()
-                org.moqui.util.RestClient.RestResponse restResponse = restClient.call()
-                if (restResponse.statusCode < 200 || restResponse.statusCode >= 300) {
-                    String errMsg = restResponse.text()
-                    ec.logger.error("error response (${restResponse.statusCode}): ${errMsg}")
-                    ec.message.addMessage("API error")
-                    ec.message.addMessage(errMsg)
-                    return
-                }
-                responseMap = restResponse.jsonObject()
-                println(responseMap);
+                        restClient.uri().protocol("https").host("sandbox.shiphawk.com")
+        //              TO DO Remove the hardcoded api key as it is not recommended to store any credentials in the public repo
+                        .port(443).path("/api/v4/orders?api_key=03341427e3d29f6cb89c04749136a811").build()
+                        org.moqui.util.RestClient.RestResponse restResponse = restClient.call()
+                        if (restResponse.statusCode < 200 || restResponse.statusCode >= 300) {
+                        String errMsg = restResponse.text()
+                        ec.logger.error("error response (${restResponse.statusCode}): ${errMsg}")
+                        ec.message.addMessage("API error")
+                        ec.message.addMessage(errMsg)
+                        return
+                        }
+                        responseMap = restResponse.jsonObject()
+                        println(responseMap);
                 ]]>
             </script>
-            </iterate>
-        </actions>
+        </iterate>
+      </actions>
     </service>
 </services>
-
-
 
 
 
